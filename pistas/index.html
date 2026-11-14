@@ -159,6 +159,10 @@ body.print .logos{display:none}
 .late{color:var(--bad)!important}
 select{width:100%;font:inherit;font-size:17px;color:var(--ink);background:#FFFFFF;border:2px solid #FFFFFF;border-radius:14px;padding:13px 15px;outline:none}
 .sec-link{display:flex;align-items:center;justify-content:center;min-height:44px;border:1.5px solid var(--line);border-radius:999px;color:#fff;text-decoration:none;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;margin-top:8px}
+.teampick{display:flex;align-items:center;gap:14px;text-align:left;background:var(--glass);color:#fff;border:1.5px solid var(--line);border-left:8px solid var(--tc);border-radius:18px;padding:14px 16px;margin-top:10px}
+.teampick .dot{width:18px;height:18px}
+.teampick b{display:block;font-size:18px}
+.teampick small{display:block;font-family:Inter,sans-serif;font-weight:500;font-size:13px;color:var(--muted);margin-top:2px}
 </style>
 </head>
 <body>
@@ -2557,7 +2561,31 @@ var qrcode = function() {
     if (P.e) setTok(String(P.e).toLowerCase());
     if (P.d) lsSet(DKEY, String(P.d).slice(0, 40));
     if (getTok()) { syncUrl(); return playerStart(); }
-    render(brand() + '<div class="card center"><div class="hero404" style="font-size:60px">?<span>!</span>?</div><h2 style="margin-top:14px">Señal perdida</h2><p class="muted">Escaneen con la cámara del celular el QR de <b>su sobre inicial</b> para entrar como equipo.</p><p class="small muted">¿Ya estaban jugando? Vuelvan a escanear el QR: su avance sigue guardado.</p></div>');
+    teamPicker();
+  }
+
+  // ================= Elegir equipo (enlace general del grupo de WhatsApp) =================
+  function teamPicker(err) {
+    stop(); loading('Cargando equipos…');
+    call('teams').then(function (d) {
+      if (!d.ok) {
+        render(brand() + '<div class="card center"><h2>No pudimos conectar</h2><p class="muted">Revisa tu internet. Reintentamos en unos segundos.</p><button id="retry">Reintentar ahora</button></div>');
+        document.getElementById('retry').onclick = function () { teamPicker(); };
+        ST.timer = setTimeout(function () { teamPicker(); }, 6000); return;
+      }
+      var h = brand() + (err ? '<div class="flash bad">' + esc(err) + '</div>' : '') +
+        '<div class="card hl"><div class="kicker">Bienvenido</div><h2>Elige tu equipo</h2><p class="muted">Toca el equipo que te asignaron los organizadores. Si tienes el QR de tu equipo, también puedes escanearlo.</p></div>' +
+        d.teams.map(function (t) {
+          return '<button class="teampick" data-tok="' + esc(t.token) + '" data-n="' + esc(t.nombre) + '" style="--tc:' + t.color + '"><span class="dot"></span><span><b>' + esc(t.nombre) + '</b><small>' + esc(t.historia) + ' · ' + t.joined + ' conectados</small></span></button>';
+        }).join('');
+      render(h);
+      Array.prototype.forEach.call(document.querySelectorAll('[data-tok]'), function (b) {
+        b.onclick = function () {
+          if (!window.confirm('¿Entrar a ' + b.getAttribute('data-n') + '?')) return;
+          setTok(b.getAttribute('data-tok')); syncUrl(); ST.data = null; playerStart();
+        };
+      });
+    });
   }
 
   // ================= Vista del equipo =================
@@ -2566,8 +2594,13 @@ var qrcode = function() {
     poll(function () {
       if (ST.busy) return;
       call('state', { e: getTok(), dev: devId() }).then(function (d) {
-        if (d.error === 'team') { setTok(null); stop(); return render(brand() + resCard('bad', 'Enlace no válido', 'Este QR no pertenece a ningún equipo. Pidan ayuda a los jueces.')); }
-        if (!d.ok) return;
+        if (d.error === 'team') { setTok(null); return teamPicker('Ese enlace no pertenece a ningún equipo. Elige tu equipo.'); }
+        if (!d.ok) {
+          ST.fails = (ST.fails || 0) + 1;
+          if (!ST.data && ST.fails >= 2) render(brand() + '<div class="card center"><div class="spin" aria-hidden="true"></div><h2>Conectando…</h2><p class="muted">La señal está lenta. Seguimos intentando solos; no cierres la página.</p></div>');
+          return;
+        }
+        ST.fails = 0;
         if (!d.me && lsGet(PKEY) && !ST.rejoining) { ST.rejoining = true; return call('join', { e: getTok(), dev: devId(), person: lsGet(PKEY) }).then(function () { ST.rejoining = false; }); }
         ST.skew = Date.now() - d.now;
         var t = d.team, sig = JSON.stringify([d.me, d.leader, d.meReady, t.leader, t.readyList, t.time.presStart, t.time.presenting, t.time.readyAt, t.joined, d.status, t.step, t.lockUntil, t.hints.length, t.photo, t.foto, t.pos, t.feedback]);
@@ -2635,6 +2668,7 @@ var qrcode = function() {
       if (t.hints.length) h += '<div class="card"><div class="kicker">Comodines usados</div>' + t.hints.map(function (x) { return '<div class="hint"><b>Pista ' + x.n + ':</b> ' + esc(x.text) + '</div>'; }).join('') + '</div>';
       }
     }
+    if (!t.named) h += '<button class="link" id="switch" style="display:block;margin:10px auto 0">¿Te equivocaste de equipo? Cambiar de equipo</button>';
     if (d.me) h += '<p class="small center" style="color:#fff;opacity:.8;margin:14px 6px 0">Si se cierra la página, vuelvan a escanear el QR de su tarjeta inicial: su avance no se pierde.</p>';
     h += '<div class="foot"><span>' + esc(t.nombre) + '</span><span>' + (d.status === 'juego' && t.step < 7 ? (!t.named ? 'Etapa: nombre' : t.step < 6 ? 'Pista ' + (t.step + 1) + ' de 6' : 'Reto final') : '') + '</span></div>';
     render(h);
@@ -2729,6 +2763,13 @@ var qrcode = function() {
     var n = document.getElementById('ferr'); if (n && n.scrollIntoView) n.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   function bindPlayer() {
+    var sw = document.getElementById('switch'); if (sw) sw.onclick = function () {
+      if (!window.confirm('¿Salir de este equipo y elegir otro?')) return;
+      call('leave', { e: getTok(), dev: devId() }).then(function (r) {
+        if (r && r.ok === false && r.msg) { ST.flash = { kind: 'bad', text: r.msg }; return playerRender(); }
+        setTok(null); lsSet(PKEY, ''); ST.data = null; try { history.replaceState(null, '', APP_URL); } catch (e) { } teamPicker();
+      });
+    };
     var rb = document.getElementById('ready'); if (rb) rb.onclick = function () { act('ready', {}); };
     var fj = document.getElementById('fj'); if (fj) fj.onsubmit = function (e) {
       e.preventDefault(); var v = document.getElementById('pj').value.replace(/\s+/g, ' ').trim();
@@ -2839,6 +2880,7 @@ var qrcode = function() {
       (d.status === 'fin' ? '<button data-c="resume" class="sec">Reanudar juego</button>' : '') +
       '<button class="sec" id="rst">' + (ST.resetArm ? 'Toca otra vez para borrar TODO' : 'Reiniciar todo (para pruebas)') + '</button></div>' +
       '<div class="card"><div class="kicker">Enlaces</div>' +
+      '<p class="small">Enlace para el grupo de WhatsApp (cada uno elige su equipo):<br><a style="color:var(--or2)" target="_blank" href="' + esc(APP_URL) + '?entrar">' + esc(APP_URL) + '?entrar</a></p>' +
       '<p class="small">Pantalla para proyectar:<br><a style="color:var(--or2)" target="_blank" href="' + esc(APP_URL) + '?v=ranking">' + esc(APP_URL) + '?v=ranking</a></p>' +
       '<p class="small">Tarjetas para imprimir (con QR de cada equipo):<br><a style="color:var(--or2)" target="_blank" href="' + esc(APP_URL) + '?v=imprimir&k=' + encodeURIComponent(ST.adminKey) + '">Abrir tarjetas imprimibles</a></p>' +
       d.teams.map(function (t) { return '<div class="tokenlink"><span class="dot" style="--tc:' + t.color + ';width:10px;height:10px"></span> ' + esc(t.nombre) + ': ' + esc(teamLink(t.token)) + '</div>'; }).join('') + '</div></div>';
