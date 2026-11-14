@@ -2959,7 +2959,7 @@ var qrcode = function() {
     h += '<div class="card"><div class="kicker">Fotos de las estaciones</div><p class="small muted" style="margin-top:0">Es la foto que ve cada equipo para encontrar su siguiente sobre. Tómenla desde un ángulo que no sea tan obvio.</p><div class="grid2">' +
       d.estaciones.map(function (s) {
         return '<div style="display:flex;gap:12px;align-items:flex-start"><div>' + (s.url ? '<a href="' + esc(s.url) + '" target="_blank"><img class="mini" src="' + esc(s.url) + '" alt="Estación ' + s.id + '"></a>' : '<div class="mini"></div>') + '</div>' +
-          '<div><b>Estación ' + s.id + '</b><div class="small muted">' + esc(s.nombre) + '</div><label class="filebtn" style="min-height:40px;padding:8px 14px;font-size:14px;width:auto">' + (s.url ? 'Cambiar foto' : 'Subir foto') + '<input type="file" accept="image/*" data-st="' + s.id + '"></label></div></div>';
+          '<div><b>Estación ' + s.id + '</b><div class="small muted">' + esc(s.nombre) + ' <button class="link" data-stn="' + s.id + '" data-n="' + esc(s.nombre) + '" style="min-height:30px;padding:2px 4px;margin:0;font-size:13px">Cambiar nombre</button></div><label class="filebtn" style="min-height:40px;padding:8px 14px;font-size:14px;width:auto">' + (s.url ? 'Cambiar foto' : 'Subir foto') + '<input type="file" accept="image/*" data-st="' + s.id + '"></label></div></div>';
       }).join('') + '</div></div>';
 
     render(h, true);
@@ -2968,6 +2968,9 @@ var qrcode = function() {
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-ren]'), function (b) {
       b.onclick = function () { var n = window.prompt('Nuevo nombre del equipo', b.getAttribute('data-n')); if (n !== null && n.trim()) adminCmd('rename', { team: b.getAttribute('data-ren'), name: n }); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-stn]'), function (b) {
+      b.onclick = function () { var n = window.prompt('Nombre del lugar de la estación ' + b.getAttribute('data-stn'), b.getAttribute('data-n')); if (n !== null && n.trim()) adminCmd('stname', { station: b.getAttribute('data-stn'), name: n }); };
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-kick]'), function (b) {
       b.onclick = function () { var n = b.getAttribute('data-n'); if (window.confirm('¿Quitar a «' + n + '» del equipo? Úsalo para nombres repetidos o personas que no están.')) adminCmd('kick', { team: b.getAttribute('data-kick'), name: n }); };
