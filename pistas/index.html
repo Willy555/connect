@@ -165,6 +165,7 @@ select{width:100%;font:inherit;font-size:17px;color:var(--ink);background:#FFFFF
 .teampick small{display:block;font-family:Inter,sans-serif;font-weight:500;font-size:13px;color:var(--muted);margin-top:2px}
 .who{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:1px 2px 1px 9px;margin:3px 4px 0 0;white-space:nowrap}
 td button.x,button.x{width:28px;min-height:28px;height:28px;padding:0;margin:0;border-radius:50%;background:transparent;color:var(--bad);font-size:18px;line-height:1}
+@media print{html,body{background:#fff!important}}
 </style>
 </head>
 <body>
@@ -3078,7 +3079,7 @@ var qrcode = function() {
       }
       h += '<div class="pagebreak"></div>';
     });
-    $app.className = ''; document.body.className = 'print'; $app.innerHTML = h;
+    $app.className = ''; document.body.className = 'print'; document.documentElement.style.background = '#fff'; document.body.style.background = '#fff'; $app.innerHTML = h;
   }
 
   window.SPUI = { route: route, stop: stop };
