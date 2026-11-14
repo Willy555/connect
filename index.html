@@ -2506,6 +2506,9 @@ var qrcode = function() {
   // ================= Escaneo de otra persona =================
   function scanFlow(me, g) {
     loading('Verificando a la persona…');
+    // Quita el código escaneado de la dirección: si el celular recarga la pestaña, no se vuelve a contar el escaneo
+    window.PARAMS = {};
+    try { history.replaceState(null, '', location.pathname); } catch (e) { }
     call('find', { badge: me.badge, token: me.token, target: g }).then(function (r) {
       var res = r.result || r;
       if (r.error === 'auth') { setMe(null); return badgeFlow(g); }
