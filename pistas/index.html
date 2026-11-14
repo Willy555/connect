@@ -163,6 +163,8 @@ select{width:100%;font:inherit;font-size:17px;color:var(--ink);background:#FFFFF
 .teampick .dot{width:18px;height:18px}
 .teampick b{display:block;font-size:18px}
 .teampick small{display:block;font-family:Inter,sans-serif;font-weight:500;font-size:13px;color:var(--muted);margin-top:2px}
+.who{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:1px 2px 1px 9px;margin:3px 4px 0 0;white-space:nowrap}
+td button.x,button.x{width:28px;min-height:28px;height:28px;padding:0;margin:0;border-radius:50%;background:transparent;color:var(--bad);font-size:18px;line-height:1}
 </style>
 </head>
 <body>
@@ -2483,7 +2485,7 @@ var qrcode = function() {
 (function () {
   var $app = document.getElementById('app');
   var ST = { timer: null, tick: null, data: null, flash: null, busy: false, mem: null, adminKey: '', sig: null, resetArm: false, pending: null };
-  var KEY = 'senal_team_v1', PKEY = 'senal_person_v1', DKEY = 'senal_dev_v1';
+  var KEY = 'senal_team_v1', PKEY = 'senal_person_v1', DKEY = 'senal_dev_v1', RKEY = 'senal_round_v1';
   function ckGet(k) { var m = document.cookie.match(new RegExp('(?:^|; )' + k + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
   function ckSet(k, v) { try { document.cookie = k + '=' + encodeURIComponent(v || '') + '; path=/; max-age=' + (v ? 172800 : 0) + '; SameSite=Lax'; } catch (e) { } }
   // Se guarda en tres lugares (memoria, almacenamiento y cookie) para que salir del navegador no les haga perder la partida
@@ -2576,7 +2578,8 @@ var qrcode = function() {
         document.getElementById('retry').onclick = function () { teamPicker(); };
         ST.timer = setTimeout(function () { teamPicker(); }, 6000); return;
       }
-      var h = brand() + (err ? '<div class="flash bad">' + esc(err) + '</div>' : '') +
+      if (d.round) lsSet(RKEY, d.round);
+      var h = brand() + (err ? '<div class="flash info">' + esc(err) + '</div>' : '') +
         '<div class="card hl"><div class="kicker">Bienvenido</div><h2>Elige tu equipo</h2><p class="muted">Toca el equipo que te asignaron los organizadores. Si tienes el QR de tu equipo, también puedes escanearlo.</p></div>' +
         d.teams.map(function (t) {
           return '<button class="teampick" data-tok="' + esc(t.token) + '" data-n="' + esc(t.nombre) + '" style="--tc:' + t.color + '"><span class="dot"></span><span><b>' + esc(t.nombre) + '</b><small>' + esc(t.historia) + ' · ' + t.joined + ' conectados</small></span></button>';
@@ -2604,6 +2607,14 @@ var qrcode = function() {
           return;
         }
         ST.fails = 0;
+        // Si los jueces reiniciaron el juego, este celular empieza de cero
+        var rd = d.team && d.team.round, mine = lsGet(RKEY);
+        if (rd && mine && rd !== mine) {
+          setTok(null); lsSet(PKEY, ''); lsSet(RKEY, rd); window.PARAMS = {}; ST.data = null; ST.sig = null;
+          try { history.replaceState(null, '', APP_URL); } catch (e) { }
+          return teamPicker('Empezó una partida nueva. Elige tu equipo.');
+        }
+        if (rd && !mine) lsSet(RKEY, rd);
         if (!d.me && lsGet(PKEY) && !ST.rejoining) { ST.rejoining = true; return call('join', { e: getTok(), dev: devId(), person: lsGet(PKEY) }).then(function () { ST.rejoining = false; }); }
         ST.skew = Date.now() - d.now;
         var t = d.team, sig = JSON.stringify([d.me, d.leader, d.meReady, t.leader, t.readyList, t.time.prepStart, t.time.presStart, t.time.presenting, t.time.readyAt, t.joined, d.status, t.step, t.lockUntil, t.hints.length, t.photo, t.foto, t.pos, t.feedback]);
@@ -2631,7 +2642,8 @@ var qrcode = function() {
 
     if (!d.me) {
       h += '<div class="card hl"><div class="kicker">Únete a tu equipo</div><h2>¿Quién eres?</h2><p class="muted">Escribe tu nombre y apellido. Así los jueces saben quién está en cada equipo. Todos los del equipo escanean este mismo QR.</p>' +
-        '<form id="fj"><input id="pj" maxlength="50" placeholder="Nombre y apellido" autocomplete="name" aria-label="Nombre y apellido"><button type="submit">Unirme al equipo</button></form></div>' + joinedCard(t);
+        ((t.joined || []).length ? '<p style="margin-bottom:4px"><b>¿Ya te registraste antes?</b> Toca tu nombre:</p>' + t.joined.map(function (n) { return '<button class="sec claim" data-claim="' + esc(n) + '" style="margin-top:8px">Soy ' + esc(n) + '</button>'; }).join('') + '<p style="margin:16px 0 4px"><b>¿Eres nuevo?</b> Escribe tu nombre:</p>' : '') +
+        '<form id="fj"><input id="pj" maxlength="50" placeholder="Nombre y apellido" autocomplete="name" aria-label="Nombre y apellido"><button type="submit">Unirme al equipo</button></form></div>';
     } else if (d.status === 'espera') {
       h += '<div class="card hl"><div class="kicker">Equipo conectado</div><h2>¡Listos! Esperen la señal</h2><p class="muted">Cuando los jueces inicien el juego, aquí aparecerá su historia. No hace falta recargar.</p></div>' + joinedCard(t) + howTo(t);
     } else if (t.step >= 7) {
@@ -2778,6 +2790,9 @@ var qrcode = function() {
     };
     var rv = document.getElementById('reveal'); if (rv) rv.onclick = function () { if (window.confirm('¿Ya están todos juntos? Al ver el problema empiezan a correr los 10 minutos.')) act('reveal', {}); };
     var rb = document.getElementById('ready'); if (rb) rb.onclick = function () { act('ready', {}); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-claim]'), function (b) {
+      b.onclick = function () { var n = b.getAttribute('data-claim'); if (!window.confirm('¿Eres ' + n + '?')) return; lsSet(PKEY, n); act('join', { person: n, claim: true }); };
+    });
     var fj = document.getElementById('fj'); if (fj) fj.onsubmit = function (e) {
       e.preventDefault(); var v = document.getElementById('pj').value.replace(/\s+/g, ' ').trim();
       if (v.split(' ').length < 2) { ST.flash = { kind: 'bad', text: 'Escribe tu nombre y apellido.' }; return playerRender(); }
@@ -2904,7 +2919,7 @@ var qrcode = function() {
       d.teams.map(function (t) {
         var stage = !t.named && t.step < 7 ? '<span class="pill off">Eligiendo nombre</span>' : t.step >= 7 ? '<span class="pill on">Completó #' + t.pos + '</span>' : t.step === 6 ? '<span class="pill ' + (t.photo && t.photo.status === 'pendiente' ? 'wait">Foto en revisión' : 'on">Reto final') + '</span>' : '<span class="pill on">Pista ' + (t.step + 1) + ' de 6</span>';
         var times = t.log.map(function (l) { return (l.step <= 6 ? 'P' + l.step : 'Fin') + ' ' + hhmm(l.t); }).join(' · ');
-        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + '</div><div class="small" style="margin-top:4px"><b>Conectados (' + (t.joined || []).length + '):</b> ' + esc((t.joined || []).join(', ') || 'nadie todavía') + '</div><div class="small" style="margin-top:2px"><b>Líder:</b> ' + esc(t.leader || 'sin elegir') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button><button class="sec" data-lead="' + t.id + '">Cambiar líder</button></td>' +
+        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + '</div><div class="small" style="margin-top:4px"><b>Conectados (' + (t.joined || []).length + '):</b> ' + ((t.joined || []).length ? (t.readyList || []).map(function (p) { return '<span class="who">' + (p.ready ? '✓ ' : '') + esc(p.name) + '<button class="x" data-kick="' + t.id + '" data-n="' + esc(p.name) + '" aria-label="Quitar a ' + esc(p.name) + '">×</button></span>'; }).join('') : 'nadie todavía') + '</div><div class="small" style="margin-top:2px"><b>Líder:</b> ' + esc(t.leader || 'sin elegir') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button><button class="sec" data-lead="' + t.id + '">Cambiar líder</button></td>' +
           '<td>' + stage + '<div style="font-family:Poppins,sans-serif;font-weight:700;font-size:18px;margin-top:4px">' + (t.time.endAt ? 'Jugó ' + clockUp(t.time.startedAt, t.time.endAt) : clockDown(t.time.gameDue)) + '</div><div class="small muted">' + esc(times) + '</div></td><td>' + esc(t.respuesta || '-') + '</td><td>' + t.wrong + '</td><td>' + t.hints + '</td>' +
           '<td>' + t.penal + ' <button class="sec" data-c="penal" data-t="' + t.id + '" data-d="1">+1</button><button class="sec" data-c="penal" data-t="' + t.id + '" data-d="-1">-1</button></td>' +
           '<td><button class="sec" data-c="skip" data-t="' + t.id + '">Pasar pista</button><button class="sec" data-c="back" data-t="' + t.id + '">Retroceder</button><button class="sec" data-c="unlock" data-t="' + t.id + '">Quitar espera</button></td></tr>';
@@ -2953,6 +2968,9 @@ var qrcode = function() {
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-ren]'), function (b) {
       b.onclick = function () { var n = window.prompt('Nuevo nombre del equipo', b.getAttribute('data-n')); if (n !== null && n.trim()) adminCmd('rename', { team: b.getAttribute('data-ren'), name: n }); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-kick]'), function (b) {
+      b.onclick = function () { var n = b.getAttribute('data-n'); if (window.confirm('¿Quitar a «' + n + '» del equipo? Úsalo para nombres repetidos o personas que no están.')) adminCmd('kick', { team: b.getAttribute('data-kick'), name: n }); };
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-lead]'), function (b) {
       b.onclick = function () {
