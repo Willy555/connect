@@ -2565,6 +2565,7 @@ var qrcode = function() {
     if (P.v === 'admin') { ST.adminKey = P.k || ST.adminKey; return adminStart(); }
     if (P.v === 'imprimir') { ST.adminKey = P.k || ST.adminKey; return printStart(); }
     if (P.e) setTok(String(P.e).toLowerCase());
+    ST.scanned = !!(P.e && !P.d); // vino de escanear el QR de un equipo
     if (P.d) lsSet(DKEY, String(P.d).slice(0, 40));
     if (getTok()) { syncUrl(); return playerStart(); }
     teamPicker();
@@ -2610,6 +2611,7 @@ var qrcode = function() {
         ST.fails = 0;
         // Si los jueces reiniciaron el juego, este celular empieza de cero
         var rd = d.team && d.team.round, mine = lsGet(RKEY);
+        if (rd && mine && rd !== mine && ST.scanned) { lsSet(RKEY, rd); lsSet(PKEY, ''); mine = rd; ST.scanned = false; return ST.pollFn(); }
         if (rd && mine && rd !== mine) {
           setTok(null); lsSet(PKEY, ''); lsSet(RKEY, rd); window.PARAMS = {}; ST.data = null; ST.sig = null;
           try { history.replaceState(null, '', APP_URL); } catch (e) { }
