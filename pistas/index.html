@@ -2544,7 +2544,7 @@ var qrcode = function() {
       call('state', { e: getTok() }).then(function (d) {
         if (d.error === 'team') { setTok(null); stop(); return render(brand() + resCard('bad', 'Enlace no válido', 'Este QR no pertenece a ningún equipo. Pidan ayuda a los jueces.')); }
         if (!d.ok) return;
-        var t = d.team, sig = JSON.stringify([d.status, t.step, t.lockUntil, t.hints.length, t.photo, t.foto, t.pos]);
+        var t = d.team, sig = JSON.stringify([d.status, t.step, t.lockUntil, t.hints.length, t.photo, t.foto, t.pos, t.feedback]);
         if (focused() && ST.sig === sig) return;
         if (ST.sig === sig && !ST.flash) return;
         ST.data = d; ST.sig = sig; playerRender();
@@ -2569,9 +2569,9 @@ var qrcode = function() {
       h += '<div class="card hl"><div class="kicker">Equipo conectado</div><h2>¡Listos! Esperen la señal</h2><p class="muted">Cuando los jueces inicien el juego, aquí aparecerá su historia. No hace falta recargar.</p></div>' + howTo(t);
     } else if (t.step >= 7) {
       h += '<div class="card res ok"><div class="ic">' + ICON.ok + '</div><div class="kicker">Misión completa</div><div class="hero404" style="font-size:80px"><span>#' + (t.pos || '-') + '</span></div>' +
-        '<p class="muted">Llegaron en el puesto ' + (t.pos || '-') + '. Vuelvan al salón y empiecen su entregable.</p></div>' + finalCards(t);
+        '<p class="muted">Llegaron en el puesto ' + (t.pos || '-') + '. Vuelvan al salón: abajo está su reto de ingeniería.</p></div>' + finalCards(t);
     } else if (d.status === 'fin') {
-      h += resCard('info', 'Se acabó el tiempo', 'Vuelvan al salón con los fragmentos que encontraron y preparen su entregable.') + finalCards(t);
+      h += resCard('info', 'Se acabó el tiempo', 'Vuelvan al salón. Abajo está su reto de ingeniería.') + finalCards(t);
     } else {
       h += stepsBar(t.step);
       if (locked) h += '<div class="lock" role="status"><div class="t" id="lk">' + lockLeft + 's</div><div><b>Respuesta incorrecta</b><div class="small muted">Revisen el acertijo. Pueden intentar otra vez cuando termine el conteo.</div></div></div>';
@@ -2627,8 +2627,10 @@ var qrcode = function() {
 
   function finalCards(t) {
     var h = '';
+    if (t.feedback) h += '<div class="card hl"><div class="kicker">Feedback de los jueces</div><p style="font-size:16.5px">' + esc(t.feedback) + '</p></div>';
+    if (t.entregable) h += '<div class="card hl"><div class="kicker">Su reto de ingeniería</div><p style="font-size:16.5px">' + esc(t.entregable) + '</p>' +
+      '<ol style="margin:8px 0 0;padding-left:20px;line-height:1.6"><li>Tienen <b>10 minutos</b> para preparar su solución. Pueden usar un papelógrafo.</li><li>Presentan en <b>3 minutos</b> y <b>hablan todos</b>: el problema, su solución y cómo funcionaría.</li><li>Los jueces les harán 2 o 3 preguntas y luego les darán su feedback aquí.</li></ol></div>';
     if (t.fragmentos && t.fragmentos.length) h += '<div class="card" style="--tc:' + t.color + '"><div class="kicker">Su historia completa</div>' + t.fragmentos.map(function (f, i) { return '<div class="frag"><b>' + (i + 1) + '.</b> ' + esc(f) + '</div>'; }).join('') + '</div>';
-    if (t.entregable) h += '<div class="card hl"><div class="kicker">Su entregable final</div><p style="font-size:16.5px">' + esc(t.entregable) + '</p><p class="small muted">Tienen 25 minutos para prepararlo y 3 minutos para presentarlo a los jueces. El mejor se publica en las redes de IEEE YP Ecuador.</p></div>';
     return h;
   }
 
@@ -2758,12 +2760,12 @@ var qrcode = function() {
           '<td><button class="sec" data-c="skip" data-t="' + t.id + '">Pasar pista</button><button class="sec" data-c="back" data-t="' + t.id + '">Retroceder</button><button class="sec" data-c="unlock" data-t="' + t.id + '">Quitar espera</button></td></tr>';
       }).join('') + '</tbody></table></div>';
 
-    h += '<div class="card" style="overflow-x:auto"><div class="kicker">Calificación final</div><p class="small muted" style="margin-top:0">Llegada automática (30, 25, 20, 15; sin terminar 10). Fidelidad 0 a 20, creatividad 0 a 20, calidad para publicar 0 a 15, presentación 0 a 15. Cada comodín resta 5 y cada penalización 10.</p>' +
-      '<table><thead><tr><th>Equipo</th><th>Llegada</th><th>Fidelidad</th><th>Creatividad</th><th>Publicable</th><th>Presentación</th><th>Descuentos</th><th>Total</th><th></th></tr></thead><tbody>' +
+    h += '<div class="card" style="overflow-x:auto"><div class="kicker">Calificación final</div><p class="small muted" style="margin-top:0">Llegada automática (30, 25, 20, 15; sin terminar 10). Solución 0 a 20, creatividad 0 a 20, participación de todos 0 a 15, respuestas a sus preguntas 0 a 15. Cada comodín resta 5 y cada penalización 10. El feedback lo ve el equipo en su celular al guardar.</p>' +
+      '<table><thead><tr><th>Equipo</th><th>Llegada</th><th>Solución</th><th>Creatividad</th><th>Participación</th><th>Respuestas</th><th>Descuentos</th><th>Total</th><th>Feedback</th><th></th></tr></thead><tbody>' +
       d.teams.map(function (t) {
         function inp(k, max) { var v = t.score[k]; return '<td><input class="sc" type="number" min="0" max="' + max + '" data-sc="' + t.id + '" data-k="' + k + '" value="' + (v == null ? '' : v) + '"></td>'; }
-        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b></td><td>' + t.calc.arrival + '</td>' + inp('fid', 20) + inp('crea', 20) + inp('pub', 15) + inp('pres', 15) +
-          '<td>-' + t.calc.minus + '</td><td><b style="font-size:18px">' + t.calc.total + '</b></td><td><button data-save="' + t.id + '">Guardar</button></td></tr>';
+        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b></td><td>' + t.calc.arrival + '</td>' + inp('fid', 20) + inp('crea', 20) + inp('pres', 15) + inp('pub', 15) +
+          '<td>-' + t.calc.minus + '</td><td><b style="font-size:18px">' + t.calc.total + '</b></td><td><textarea data-fb="' + t.id + '" style="min-height:60px;min-width:220px;font-size:14px" placeholder="Qué hicieron bien y qué mejorar">' + esc(t.score.fb || '') + '</textarea></td><td><button data-save="' + t.id + '">Guardar</button></td></tr>';
       }).join('') + '</tbody></table>' +
       '<button class="sec" data-c="publish" style="width:auto">' + (d.published ? 'Ocultar resultados de la pantalla' : 'Mostrar resultados en la pantalla proyectada') + '</button></div>';
 
@@ -2787,6 +2789,7 @@ var qrcode = function() {
       b.onclick = function () {
         var id = b.getAttribute('data-save'), a = { team: id };
         Array.prototype.forEach.call(document.querySelectorAll('[data-sc="' + id + '"]'), function (i) { a[i.getAttribute('data-k')] = i.value; });
+        var fb = document.querySelector('[data-fb="' + id + '"]'); if (fb) a.fb = fb.value;
         adminCmd('score', a);
       };
     });
