@@ -2643,7 +2643,7 @@ var qrcode = function() {
       h += (p.url ? '<img class="photo" src="' + esc(p.url) + '" alt="Su foto enviada">' : '') + '<div class="flash info" style="margin-top:12px">Foto enviada. Los jueces la están revisando; esta pantalla cambia sola.</div>';
     } else {
       if (p && p.status === 'rechazada') h += '<div class="flash bad">Los jueces pidieron repetirla: ' + esc(p.reason) + '</div>';
-      h += '<p class="muted">Tómense la foto y súbanla aquí. Los jueces la aprueban para cerrar su misión.</p>' +
+      h += '<p class="muted">Tómense la selfie y súbanla aquí. Cuando los jueces la aprueben, verán el problema de ingeniería que deben resolver.</p>' +
         '<label class="filebtn">' + ICON.cam + (p ? 'Subir otra foto' : 'Tomar o subir foto') + '<input type="file" id="up" accept="image/*" capture="environment"></label>';
     }
     return h + '</div>';
@@ -2652,8 +2652,10 @@ var qrcode = function() {
   function finalCards(t) {
     var h = '';
     if (t.feedback) h += '<div class="card hl"><div class="kicker">Feedback de los jueces</div><p style="font-size:16.5px">' + esc(t.feedback) + '</p></div>';
-    if (t.entregable) h += '<div class="card hl"><div class="kicker">Su reto de ingeniería</div><p style="font-size:16.5px">' + esc(t.entregable) + '</p>' +
-      '<ol style="margin:8px 0 0;padding-left:20px;line-height:1.6"><li>Tienen <b>10 minutos</b> para preparar su solución. Pueden usar un papelógrafo.</li><li>Presentan en <b>3 minutos</b> y <b>hablan todos</b>: el problema, su solución y cómo funcionaría.</li><li>Los jueces les harán 2 o 3 preguntas y luego les darán su feedback aquí.</li></ol></div>';
+    if (t.entregable) h += '<div class="card hl"><div class="kicker">Su reto de ingeniería</div><p class="muted" style="margin:0">El problema:</p><p style="font-size:17px;margin-top:4px">' + esc(t.entregable) + '</p>' +
+      '<p style="font-size:16.5px"><b>Su reto:</b> propongan una solución de ingeniería y explíquenla respondiendo:</p>' +
+      '<ol style="margin:4px 0 0;padding-left:20px;line-height:1.6"><li>¿Cuál es su solución y cómo funciona?</li><li>¿Qué ingenierías o profesiones se necesitan?</li><li>¿Qué haría falta para hacerla realidad?</li><li>¿Por qué funcionaría mejor que lo que hay hoy?</li></ol>' +
+      '<p class="small muted" style="margin-top:12px">Tienen 10 minutos para prepararse y 3 minutos para presentar. Hablan todos. No necesitan materiales: solo su idea. Al final los jueces les harán 2 o 3 preguntas y aquí verán su feedback.</p></div>';
     if (t.fragmentos && t.fragmentos.length) h += '<div class="card" style="--tc:' + t.color + '"><div class="kicker">Su historia completa</div>' + t.fragmentos.map(function (f, i) { return '<div class="frag"><b>' + (i + 1) + '.</b> ' + esc(f) + '</div>'; }).join('') + '</div>';
     return h;
   }
@@ -2889,7 +2891,7 @@ var qrcode = function() {
         h += '<div class="pcard" ' + st + '><div class="ph"><span>' + esc(e.nombre) + '</span><small>FRAGMENTO ' + (i + 1) + ' DE 6</small></div><div class="pb">' +
           '<div class="pq">' + esc(e.fragmentos[i]) + '</div>' +
           (p ? '<h4>Acertijo ' + (i + 2) + '</h4><p>' + esc(p.acertijo) + '</p>' + (p.ayuda ? '<div class="pa">' + esc(p.ayuda) + '</div>' : '') + '<p class="pa">Escriban la respuesta en su celular.</p>'
-            : '<h4>Reto final</h4><p>' + esc(e.reto) + '</p><p class="pa">Suban la foto desde su celular. Cuando los jueces la aprueben, su misión estará completa.</p>') +
+            : '<h4>Reto final</h4><p>' + esc(e.reto) + '</p><p class="pa">Suban la selfie desde su celular. Cuando los jueces la aprueben, en su celular aparecerá el problema de ingeniería que deben resolver y presentar.</p>') +
           '<div class="staff">Estación ' + e.ruta[i] + ' · ' + esc(S[e.ruta[i]]) + '</div></div></div>';
       }
       h += '<div class="pagebreak"></div>';
