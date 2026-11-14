@@ -2472,7 +2472,10 @@ var qrcode = function() {
 (function () {
   var $app = document.getElementById('app');
   var ST = { timer: null, tick: null, data: null, flash: null, busy: false, mem: null, adminKey: '', sig: null, resetArm: false, pending: null };
-  var KEY = 'senal_team_v1';
+  var KEY = 'senal_team_v1', PKEY = 'senal_person_v1', DKEY = 'senal_dev_v1';
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return ST['m_' + k] || null; } }
+  function lsSet(k, v) { ST['m_' + k] = v; try { localStorage.setItem(k, v); } catch (e) { } }
+  function devId() { var d = lsGet(DKEY); if (!d) { d = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36); lsSet(DKEY, d); } return d; }
   var LABELS = ['✎', '1', '2', '3', '4', '5', '6', '📷'];
 
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -2541,10 +2544,11 @@ var qrcode = function() {
     if (!ST.data) loading('Conectando con su equipo…');
     poll(function () {
       if (ST.busy) return;
-      call('state', { e: getTok() }).then(function (d) {
+      call('state', { e: getTok(), dev: devId() }).then(function (d) {
         if (d.error === 'team') { setTok(null); stop(); return render(brand() + resCard('bad', 'Enlace no válido', 'Este QR no pertenece a ningún equipo. Pidan ayuda a los jueces.')); }
         if (!d.ok) return;
-        var t = d.team, sig = JSON.stringify([d.status, t.step, t.lockUntil, t.hints.length, t.photo, t.foto, t.pos, t.feedback]);
+        if (!d.me && lsGet(PKEY) && !ST.rejoining) { ST.rejoining = true; return call('join', { e: getTok(), dev: devId(), person: lsGet(PKEY) }).then(function () { ST.rejoining = false; }); }
+        var t = d.team, sig = JSON.stringify([d.me, t.joined, d.status, t.step, t.lockUntil, t.hints.length, t.photo, t.foto, t.pos, t.feedback]);
         if (focused() && ST.sig === sig) return;
         if (ST.sig === sig && !ST.flash) return;
         ST.data = d; ST.sig = sig; playerRender();
@@ -2567,8 +2571,11 @@ var qrcode = function() {
     var h = brand('Color ' + colorWord(t), t.color) + flashHtml();
     h += '<div class="teamchip" style="--tc:' + t.color + '"><span class="dot"></span><div><b>' + esc(t.nombre) + '</b><span>' + esc(t.historia) + ' · sobres color ' + colorWord(t) + '</span>' + (t.members && t.members.length ? '<span style="display:block;margin-top:2px">' + esc(t.members.join(' · ')) + '</span>' : '') + '</div></div>';
 
-    if (d.status === 'espera') {
-      h += '<div class="card hl"><div class="kicker">Equipo conectado</div><h2>¡Listos! Esperen la señal</h2><p class="muted">Cuando los jueces inicien el juego, aquí aparecerá su historia. No hace falta recargar.</p></div>' + howTo(t);
+    if (!d.me) {
+      h += '<div class="card hl"><div class="kicker">Únete a tu equipo</div><h2>¿Quién eres?</h2><p class="muted">Escribe tu nombre y apellido. Así los jueces saben quién está en cada equipo. Todos los del equipo escanean este mismo QR.</p>' +
+        '<form id="fj"><input id="pj" maxlength="50" placeholder="Nombre y apellido" autocomplete="name" aria-label="Nombre y apellido"><button type="submit">Unirme al equipo</button></form></div>' + joinedCard(t);
+    } else if (d.status === 'espera') {
+      h += '<div class="card hl"><div class="kicker">Equipo conectado</div><h2>¡Listos! Esperen la señal</h2><p class="muted">Cuando los jueces inicien el juego, aquí aparecerá su historia. No hace falta recargar.</p></div>' + joinedCard(t) + howTo(t);
     } else if (t.step >= 7) {
       h += '<div class="card res ok"><div class="ic">' + ICON.ok + '</div><div class="kicker">Misión completa</div><div class="hero404" style="font-size:80px"><span>#' + (t.pos || '-') + '</span></div>' +
         '<p class="muted">Llegaron en el puesto ' + (t.pos || '-') + '. Vuelvan al salón: abajo está su reto de ingeniería.</p></div>' + finalCards(t);
@@ -2583,7 +2590,7 @@ var qrcode = function() {
         h += '<div class="card hl"><div class="kicker">Primera etapa</div><h2>Pónganle nombre a su equipo</h2>' +
           '<p class="muted">Pónganse de acuerdo entre todos. Que tenga que ver con la ingeniería. Saldrá en la pantalla grande y ya no se puede cambiar.</p>' +
           '<form id="fn"><label for="ni">Nombre del equipo</label><input id="ni" maxlength="30" placeholder="Ej. Los Ohmnipotentes" autocomplete="off">' +
-          '<label>Integrantes</label><div id="mems">' + [1, 2, 3, 4].map(function (i) { return memberInput(i); }).join('') + '</div>' +
+          '<label>Integrantes</label><div id="mems">' + (function () { var j = (t.joined || []).slice(0, 8), n = Math.max(4, j.length), out = ''; for (var i = 0; i < n; i++) out += memberInput(i + 1, j[i]); return out; })() + '</div>' +
           '<button type="button" class="link" id="addm">+ Agregar otro integrante</button>' +
           '<button type="submit">Guardar equipo</button></form></div>' + howTo(t);
       } else {
@@ -2622,7 +2629,11 @@ var qrcode = function() {
       '<li>Repitan hasta llegar al reto final: una foto de equipo que los jueces aprueban.</li></ol>' +
       '<p class="small muted">Todos los del equipo pueden abrir este QR en su celular. Si se traban, tienen 2 comodines (cada uno resta puntos).</p></div>';
   }
-  function memberInput(i) { return '<input class="mem" maxlength="40" placeholder="Integrante ' + i + '" autocomplete="off" aria-label="Integrante ' + i + '" style="margin-top:8px">'; }
+  function memberInput(i, v) { return '<input class="mem" maxlength="40" placeholder="Integrante ' + i + '" autocomplete="off" aria-label="Integrante ' + i + '" style="margin-top:8px" value="' + esc(v || '') + '">'; }
+  function joinedCard(t) {
+    var j = t.joined || [];
+    return '<div class="card"><div class="kicker">Conectados en este equipo (' + j.length + ')</div>' + (j.length ? j.map(function (n) { return '<div class="frag" style="--tc:' + t.color + '">' + esc(n) + '</div>'; }).join('') : '<p class="muted" style="margin:0">Todavía nadie.</p>') + '</div>';
+  }
   function colorWord(t) { return { ROJO: 'rojo', AZUL: 'azul', VERDE: 'verde', AMARILLO: 'amarillo', MORADO: 'morado' }[t.id] || ''; }
 
   function retoCard(t) {
@@ -2658,6 +2669,7 @@ var qrcode = function() {
       else if (r.result === 'correcta') ST.flash = { kind: 'ok', text: '¡Correcto! Busquen su siguiente sobre.' };
       else if (r.result === 'reto') ST.flash = { kind: 'ok', text: '¡Correcto! Encuentren su último sobre: ahí está el reto final.' };
       else if (r.result === 'incorrecta') ST.flash = { kind: 'bad', text: 'Esa no es la respuesta.' };
+      else if (r.result === 'unido') ST.flash = { kind: 'ok', text: '¡Listo, ya estás en el equipo!' };
       else if (r.result === 'nombre') ST.flash = { kind: 'ok', text: '¡Bautizados! Ahora resuelvan el acertijo de su tarjeta.' };
       else if (r.result === 'comodin') ST.flash = { kind: 'info', text: 'Comodín usado. Lo ven abajo.' };
       else if (r.result === 'foto') ST.flash = { kind: 'ok', text: 'Foto enviada a los jueces.' };
@@ -2671,6 +2683,11 @@ var qrcode = function() {
     var n = document.getElementById('ferr'); if (n && n.scrollIntoView) n.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   function bindPlayer() {
+    var fj = document.getElementById('fj'); if (fj) fj.onsubmit = function (e) {
+      e.preventDefault(); var v = document.getElementById('pj').value.replace(/\s+/g, ' ').trim();
+      if (v.split(' ').length < 2) { ST.flash = { kind: 'bad', text: 'Escribe tu nombre y apellido.' }; return playerRender(); }
+      lsSet(PKEY, v); act('join', { dev: devId(), person: v });
+    };
     var fn = document.getElementById('fn'); if (fn) fn.onsubmit = function (e) {
       e.preventDefault(); var v = document.getElementById('ni').value.trim();
       var mem = Array.prototype.map.call(document.querySelectorAll('.mem'), function (i) { return i.value.trim(); }).filter(function (x) { return x; });
@@ -2711,7 +2728,8 @@ var qrcode = function() {
     var h = '<div class="rk-head"><div><div class="ev"><span>IEEE Ecuador</span><b>CONNECT</b></div><div class="rk-title" style="margin-top:14px">SEÑAL <span>PERDIDA</span></div><div class="rk-sub">Cada equipo, su propia historia</div></div>' +
       '<div class="rk-stat"><b>' + (d.status === 'espera' ? d.rows.length : fin + '/' + d.rows.length) + '</b>' + (d.status === 'espera' ? 'equipos' : 'equipos completaron') + (el ? '<br>' + Math.floor(el / 60000) + ' min de juego' : '') + '</div></div>';
     if (d.status === 'espera') {
-      h += '<div class="card center" style="padding:40px"><h2 style="font-size:40px">El juego está por empezar</h2><p class="muted" style="font-size:20px">Escaneen el QR de su sobre inicial y esperen la señal.</p></div>';
+      h += '<div class="card center" style="padding:30px"><h2 style="font-size:36px">El juego está por empezar</h2><p class="muted" style="font-size:20px">Escaneen el QR de su sobre inicial, escriban su nombre y esperen la señal.</p></div>' +
+        d.rows.map(function (r) { return '<div class="rk-row team" style="--tc:' + r.color + '"><span class="dot"></span><div><div class="rk-name">' + esc(r.nombre) + '</div><div class="rk-hist">' + esc(r.joined && r.joined.length ? r.joined.join(' · ') : 'Esperando integrantes') + '</div></div><div class="rk-stage">' + (r.joined ? r.joined.length : 0) + ' CONECTADOS</div><div></div></div>'; }).join('');
     }
     if (d.scored) {
       var top = d.scored.slice(0, 3), order = [top[1], top[0], top[2]];
@@ -2785,7 +2803,7 @@ var qrcode = function() {
       d.teams.map(function (t) {
         var stage = !t.named && t.step < 7 ? '<span class="pill off">Eligiendo nombre</span>' : t.step >= 7 ? '<span class="pill on">Completó #' + t.pos + '</span>' : t.step === 6 ? '<span class="pill ' + (t.photo && t.photo.status === 'pendiente' ? 'wait">Foto en revisión' : 'on">Reto final') + '</span>' : '<span class="pill on">Pista ' + (t.step + 1) + ' de 6</span>';
         var times = t.log.map(function (l) { return (l.step <= 6 ? 'P' + l.step : 'Fin') + ' ' + hhmm(l.t); }).join(' · ');
-        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + (t.members.length ? '<br>' + esc(t.members.join(', ')) : '') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button></td>' +
+        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + '</div><div class="small" style="margin-top:4px"><b>Conectados (' + (t.joined || []).length + '):</b> ' + esc((t.joined || []).join(', ') || 'nadie todavía') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button></td>' +
           '<td>' + stage + '<div class="small muted">' + esc(times) + '</div></td><td>' + esc(t.respuesta || '-') + '</td><td>' + t.wrong + '</td><td>' + t.hints + '</td>' +
           '<td>' + t.penal + ' <button class="sec" data-c="penal" data-t="' + t.id + '" data-d="1">+1</button><button class="sec" data-c="penal" data-t="' + t.id + '" data-d="-1">-1</button></td>' +
           '<td><button class="sec" data-c="skip" data-t="' + t.id + '">Pasar pista</button><button class="sec" data-c="back" data-t="' + t.id + '">Retroceder</button><button class="sec" data-c="unlock" data-t="' + t.id + '">Quitar espera</button></td></tr>';
@@ -2862,7 +2880,7 @@ var qrcode = function() {
     E.forEach(function (e) {
       var st = 'style="--tc:' + e.color + '"';
       h += '<div class="pcard" ' + st + '><div class="ph"><span>' + esc(e.nombre) + ' · ' + esc(e.historia) + '</span><small>SOBRE INICIAL</small></div><div class="pb">' +
-        '<div class="qr">' + qrSvg(teamLink(e.token)) + '</div><h4>Cómo se juega</h4><p style="margin-top:0">1. Escaneen este QR con la cámara del celular.<br>2. Pónganle nombre a su equipo.<br>3. Resuelvan el acertijo y escriban la respuesta en el celular.<br>4. Les saldrá una foto: vayan a ese lugar y busquen un sobre de este color.<br>5. Repitan hasta el reto final.</p>' +
+        '<div class="qr">' + qrSvg(teamLink(e.token)) + '</div><h4>Cómo se juega</h4><p style="margin-top:0">1. Cada uno escanea este QR con su celular y escribe su nombre y apellido.<br>2. Pónganle nombre a su equipo.<br>3. Resuelvan el acertijo y escriban la respuesta en el celular.<br>4. Les saldrá una foto: vayan a ese lugar y busquen un sobre de este color.<br>5. Repitan hasta el reto final.</p>' +
         '<h4>Su historia</h4><p>' + esc(e.intro) + '</p>' +
         '<h4>Acertijo 1</h4><p>' + esc(e.pistas[0].acertijo) + '</p>' + (e.pistas[0].ayuda ? '<div class="pa">' + esc(e.pistas[0].ayuda) + '</div>' : '') +
         '<div class="staff">Se entrega en el salón al iniciar.</div></div></div>';
