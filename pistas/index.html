@@ -2565,7 +2565,7 @@ var qrcode = function() {
     var d = ST.data, t = d.team, now = Date.now(), skew = now - d.now;
     var lockLeft = t.lockUntil ? Math.ceil((t.lockUntil + skew - now) / 1000) : 0, locked = lockLeft > 0, dis = locked ? ' disabled' : '';
     var h = brand('Color ' + colorWord(t), t.color) + flashHtml();
-    h += '<div class="teamchip" style="--tc:' + t.color + '"><span class="dot"></span><div><b>' + esc(t.nombre) + '</b><span>' + esc(t.historia) + ' · sobres color ' + colorWord(t) + '</span></div></div>';
+    h += '<div class="teamchip" style="--tc:' + t.color + '"><span class="dot"></span><div><b>' + esc(t.nombre) + '</b><span>' + esc(t.historia) + ' · sobres color ' + colorWord(t) + '</span>' + (t.members && t.members.length ? '<span style="display:block;margin-top:2px">' + esc(t.members.join(' · ')) + '</span>' : '') + '</div></div>';
 
     if (d.status === 'espera') {
       h += '<div class="card hl"><div class="kicker">Equipo conectado</div><h2>¡Listos! Esperen la señal</h2><p class="muted">Cuando los jueces inicien el juego, aquí aparecerá su historia. No hace falta recargar.</p></div>' + howTo(t);
@@ -2582,7 +2582,10 @@ var qrcode = function() {
       if (!t.named) {
         h += '<div class="card hl"><div class="kicker">Primera etapa</div><h2>Pónganle nombre a su equipo</h2>' +
           '<p class="muted">Pónganse de acuerdo entre todos. Que tenga que ver con la ingeniería. Saldrá en la pantalla grande y ya no se puede cambiar.</p>' +
-          '<form id="fn"><input id="ni" maxlength="30" placeholder="Nombre del equipo" autocomplete="off" aria-label="Nombre del equipo"><button type="submit">Guardar nombre</button></form></div>' + howTo(t);
+          '<form id="fn"><label for="ni">Nombre del equipo</label><input id="ni" maxlength="30" placeholder="Ej. Los Ohmnipotentes" autocomplete="off">' +
+          '<label>Integrantes</label><div id="mems">' + [1, 2, 3, 4].map(function (i) { return memberInput(i); }).join('') + '</div>' +
+          '<button type="button" class="link" id="addm">+ Agregar otro integrante</button>' +
+          '<button type="submit">Guardar equipo</button></form></div>' + howTo(t);
       } else {
       if (t.step >= 1) {
         h += '<div class="card hl"><div class="kicker">' + (t.step === 6 ? 'Último sobre' : 'Siguiente sobre') + '</div><h2 style="font-size:21px">Su sobre ' + colorWord(t) + ' está donde se tomó esta foto</h2>' +
@@ -2619,6 +2622,7 @@ var qrcode = function() {
       '<li>Repitan hasta llegar al reto final: una foto de equipo que los jueces aprueban.</li></ol>' +
       '<p class="small muted">Todos los del equipo pueden abrir este QR en su celular. Si se traban, tienen 2 comodines (cada uno resta puntos).</p></div>';
   }
+  function memberInput(i) { return '<input class="mem" maxlength="40" placeholder="Integrante ' + i + '" autocomplete="off" aria-label="Integrante ' + i + '" style="margin-top:8px">'; }
   function colorWord(t) { return { ROJO: 'rojo', AZUL: 'azul', VERDE: 'verde', AMARILLO: 'amarillo', MORADO: 'morado' }[t.id] || ''; }
 
   function retoCard(t) {
@@ -2661,11 +2665,22 @@ var qrcode = function() {
     });
   }
 
+  function alertInline(msg) {
+    var old = document.getElementById('ferr'); if (old) old.remove();
+    var f = document.getElementById('fn'); if (f) f.insertAdjacentHTML('beforebegin', '<div class="flash bad" id="ferr" role="alert">' + esc(msg) + '</div>');
+    var n = document.getElementById('ferr'); if (n && n.scrollIntoView) n.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
   function bindPlayer() {
     var fn = document.getElementById('fn'); if (fn) fn.onsubmit = function (e) {
       e.preventDefault(); var v = document.getElementById('ni').value.trim();
-      if (v.length < 2) { ST.flash = { kind: 'bad', text: 'Escriban un nombre de al menos 2 letras.' }; return playerRender(); }
-      if (window.confirm('¿Su equipo se llamará «' + v + '»? Ya no se podrá cambiar.')) act('name', { name: v });
+      var mem = Array.prototype.map.call(document.querySelectorAll('.mem'), function (i) { return i.value.trim(); }).filter(function (x) { return x; });
+      if (v.length < 2) return alertInline('Escriban un nombre de equipo de al menos 2 letras.');
+      if (mem.length < 2) return alertInline('Escriban el nombre de al menos 2 integrantes.');
+      if (window.confirm('Equipo «' + v + '»\nIntegrantes: ' + mem.join(', ') + '\n\n¿Está bien? Ya no se podrá cambiar.')) act('name', { name: v, members: mem });
+    };
+    var am = document.getElementById('addm'); if (am) am.onclick = function () {
+      var box = document.getElementById('mems'), n = box.querySelectorAll('.mem').length;
+      if (n >= 8) return; box.insertAdjacentHTML('beforeend', memberInput(n + 1)); box.lastChild.focus(); if (n + 1 >= 8) am.style.display = 'none';
     };
     var f = document.getElementById('fa'); if (f) f.onsubmit = function (e) { e.preventDefault(); var v = document.getElementById('ai').value; if (v.trim()) act('answer', { answer: v }); };
     var hb = document.getElementById('hint'); if (hb) hb.onclick = function () {
@@ -2709,7 +2724,7 @@ var qrcode = function() {
     if (d.status !== 'espera') {
       var rows = d.scored || d.rows;
       h += rows.map(function (r, i) {
-        return '<div class="rk-row team ' + ((d.scored ? i === 0 : r.pos === 1) ? 'win' : '') + '" style="--tc:' + r.color + '"><span class="dot"></span><div><div class="rk-name">' + esc(r.nombre) + '</div><div class="rk-hist">' + esc(r.historia) + '</div></div>' +
+        return '<div class="rk-row team ' + ((d.scored ? i === 0 : r.pos === 1) ? 'win' : '') + '" style="--tc:' + r.color + '"><span class="dot"></span><div><div class="rk-name">' + esc(r.nombre) + '</div><div class="rk-hist">' + esc(r.members && r.members.length ? r.members.join(' · ') : r.historia) + '</div></div>' +
           '<div class="rk-stage">' + (d.scored ? r.total + ' PUNTOS' : stepLabel(r)) + '</div><div class="bar tc"><i style="width:' + r.progress + '%"></i></div></div>';
       }).join('');
     }
@@ -2770,7 +2785,7 @@ var qrcode = function() {
       d.teams.map(function (t) {
         var stage = !t.named && t.step < 7 ? '<span class="pill off">Eligiendo nombre</span>' : t.step >= 7 ? '<span class="pill on">Completó #' + t.pos + '</span>' : t.step === 6 ? '<span class="pill ' + (t.photo && t.photo.status === 'pendiente' ? 'wait">Foto en revisión' : 'on">Reto final') + '</span>' : '<span class="pill on">Pista ' + (t.step + 1) + ' de 6</span>';
         var times = t.log.map(function (l) { return (l.step <= 6 ? 'P' + l.step : 'Fin') + ' ' + hhmm(l.t); }).join(' · ');
-        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button></td>' +
+        return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + (t.members.length ? '<br>' + esc(t.members.join(', ')) : '') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button></td>' +
           '<td>' + stage + '<div class="small muted">' + esc(times) + '</div></td><td>' + esc(t.respuesta || '-') + '</td><td>' + t.wrong + '</td><td>' + t.hints + '</td>' +
           '<td>' + t.penal + ' <button class="sec" data-c="penal" data-t="' + t.id + '" data-d="1">+1</button><button class="sec" data-c="penal" data-t="' + t.id + '" data-d="-1">-1</button></td>' +
           '<td><button class="sec" data-c="skip" data-t="' + t.id + '">Pasar pista</button><button class="sec" data-c="back" data-t="' + t.id + '">Retroceder</button><button class="sec" data-c="unlock" data-t="' + t.id + '">Quitar espera</button></td></tr>';
