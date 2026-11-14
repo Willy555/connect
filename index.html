@@ -2427,7 +2427,10 @@ var qrcode = function() {
 
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function getMe() { if (window.DEMO) return DEMO.getMe(); try { var v = localStorage.getItem(KEY); return v ? JSON.parse(v) : ST.memMe; } catch (e) { return ST.memMe; } }
-  function setMe(m) { if (window.DEMO) return DEMO.setMe(m); ST.memMe = m; try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) { } }
+  function setMe(m) { if (window.DEMO) return DEMO.setMe(m); ST.memMe = m; try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) { } syncUrl(m); }
+  // La sesión también se guarda en la dirección: si el celular recarga o se sale, vuelve a la misma partida
+  function meQuery(m) { return m && m.badge && m.token ? '?me=' + encodeURIComponent(m.badge + '.' + m.token) : ''; }
+  function syncUrl(m) { try { history.replaceState(null, '', location.pathname + meQuery(m)); } catch (e) { } }
   function stop() { if (ST.timer) clearInterval(ST.timer); if (ST.tick) clearInterval(ST.tick); ST.timer = ST.tick = null; }
   function poll(fn, ms) { stop(); fn(); ST.timer = setInterval(fn, ms); }
   function call(action, a) { return API(action, a || {}).catch(function (e) { return { ok: false, error: 'red', msg: 'Sin conexión. Reintentando…' }; }); }
@@ -2462,6 +2465,8 @@ var qrcode = function() {
     var P = window.PARAMS || {};
     if (P.v === 'ranking') return rankingStart();
     if (P.v === 'admin') { ST.adminKey = P.k || ST.adminKey; return adminStart(); }
+    if (P.me && !getMe()) { var cut = String(P.me).indexOf('.'); if (cut > 0) setMe({ badge: String(P.me).slice(0, cut).toUpperCase(), token: String(P.me).slice(cut + 1) }); }
+    if (!P.g && getMe()) syncUrl(getMe());
     var me = getMe(), g = P.g ? String(P.g).toUpperCase() : '';
     if (g) {
       if (me && me.badge === g) return playerStart();
@@ -2508,7 +2513,7 @@ var qrcode = function() {
     loading('Verificando a la persona…');
     // Quita el código escaneado de la dirección: si el celular recarga la pestaña, no se vuelve a contar el escaneo
     window.PARAMS = {};
-    try { history.replaceState(null, '', location.pathname); } catch (e) { }
+    syncUrl(me);
     call('find', { badge: me.badge, token: me.token, target: g }).then(function (r) {
       var res = r.result || r;
       if (r.error === 'auth') { setMe(null); return badgeFlow(g); }

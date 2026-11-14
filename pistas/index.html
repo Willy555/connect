@@ -2534,9 +2534,13 @@ var qrcode = function() {
     if (P.v === 'ranking') return rankingStart();
     if (P.v === 'admin') { ST.adminKey = P.k || ST.adminKey; return adminStart(); }
     if (P.v === 'imprimir') { ST.adminKey = P.k || ST.adminKey; return printStart(); }
-    if (P.e) { setTok(String(P.e).toLowerCase()); try { history.replaceState(null, '', APP_URL); } catch (e) { } }
-    if (getTok()) return playerStart();
-    render(brand() + '<div class="card center"><div class="hero404" style="font-size:60px">?<span>!</span>?</div><h2 style="margin-top:14px">Señal perdida</h2><p class="muted">Escaneen con la cámara del celular el QR de <b>su sobre inicial</b> para entrar como equipo.</p></div>');
+    if (P.e) setTok(String(P.e).toLowerCase());
+    if (getTok()) {
+      // El código del equipo se queda en la dirección: si el celular recarga o se sale, vuelve al mismo equipo
+      if (!P.e) { try { history.replaceState(null, '', APP_URL + '?e=' + encodeURIComponent(getTok())); } catch (e) { } }
+      return playerStart();
+    }
+    render(brand() + '<div class="card center"><div class="hero404" style="font-size:60px">?<span>!</span>?</div><h2 style="margin-top:14px">Señal perdida</h2><p class="muted">Escaneen con la cámara del celular el QR de <b>su sobre inicial</b> para entrar como equipo.</p><p class="small muted">¿Ya estaban jugando? Vuelvan a escanear el QR: su avance sigue guardado.</p></div>');
   }
 
   // ================= Vista del equipo =================
@@ -2610,6 +2614,7 @@ var qrcode = function() {
       if (t.hints.length) h += '<div class="card"><div class="kicker">Comodines usados</div>' + t.hints.map(function (x) { return '<div class="hint"><b>Pista ' + x.n + ':</b> ' + esc(x.text) + '</div>'; }).join('') + '</div>';
       }
     }
+    if (d.me) h += '<p class="small center" style="color:#fff;opacity:.8;margin:14px 6px 0">Si se cierra la página, vuelvan a escanear el QR de su tarjeta inicial: su avance no se pierde.</p>';
     h += '<div class="foot"><span>' + esc(t.nombre) + '</span><span>' + (d.status === 'juego' && t.step < 7 ? (!t.named ? 'Etapa: nombre' : t.step < 6 ? 'Pista ' + (t.step + 1) + ' de 6' : 'Reto final') : '') + '</span></div>';
     render(h);
     bindPlayer();
