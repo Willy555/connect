@@ -166,6 +166,20 @@ select{width:100%;font:inherit;font-size:17px;color:var(--ink);background:#FFFFF
 .who{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:1px 2px 1px 9px;margin:3px 4px 0 0;white-space:nowrap}
 td button.x,button.x{width:28px;min-height:28px;height:28px;padding:0;margin:0;border-radius:50%;background:transparent;color:var(--bad);font-size:18px;line-height:1}
 @media print{html,body{background:#fff!important}}
+.lugares{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lugares img,.lugares .nofoto{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;display:block;background:#0b2036}
+.lugares .nofoto{display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
+.aq{border-top:1px solid var(--line);padding:10px 0;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.aq:first-of-type{border-top:0}
+.aq b{display:block;font-family:Poppins,sans-serif;font-size:16px}
+.aq span{display:block;font-size:12.5px;color:var(--muted)}
+.aq.open{display:block}
+.aq.open form{margin-top:6px}
+.aq .okmark{color:var(--ok);font-weight:700;font-size:14px}
+.aq .pend{color:var(--muted);font-size:13px}
+.aq.open form{display:flex;gap:8px;align-items:stretch}
+.aq.open form input{flex:1;min-width:0;margin:0}
+.aq.open form button{width:auto;margin:0;padding:0 18px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -2628,11 +2642,13 @@ var qrcode = function() {
     }, 5000);
   }
 
-  function stepsBar(step, named) {
+  function stepsBar(step, named, sv) {
+    sv = sv || [];
     return '<div class="stages s8">' + LABELS.map(function (n, i) {
       var c;
       if (i === 0) c = named ? 'done' : 'now';
-      else c = !named ? '' : step >= i ? 'done' : step === i - 1 ? 'now' : '';
+      else if (i < 7) c = sv[i - 1] ? 'done' : '';
+      else c = step >= 7 ? 'done' : step === 6 ? 'now' : '';
       return '<div class="st ' + c + '"><i>' + n + '</i>' + (i === 0 ? 'Nombre' : i < 7 ? 'Pista' : 'Reto') + '</div>';
     }).join('') + '</div>';
   }
@@ -2660,7 +2676,7 @@ var qrcode = function() {
     } else if (d.status === 'fin') {
       h += resCard('info', 'Se acabó el tiempo', 'Vuelvan al salón y júntense todos.') + readyCard(t, d) + finalCards(t);
     } else {
-      h += stepsBar(t.step, t.named) + '<div class="timerbar"><span>Tiempo restante<br><span class="small">Cada minuto extra resta 1 punto' + (t.over && t.over.game ? ' · van -' + t.over.game : '') + '</span></span><b>' + clockDown(t.time.gameDue) + '</b></div>';
+      h += stepsBar(t.step, t.named, t.solved) + '<div class="timerbar"><span>Tiempo restante<br><span class="small">Cada minuto extra resta 1 punto' + (t.over && t.over.game ? ' · van -' + t.over.game : '') + '</span></span><b>' + clockDown(t.time.gameDue) + '</b></div>';
       if (locked) h += '<div class="lock" role="status"><div class="t" id="lk">' + lockLeft + 's</div><div><b>Respuesta incorrecta</b><div class="small muted">Revisen el acertijo. Al terminar el conteo se habilita solo, sin recargar.</div></div></div>';
       if (t.intro) h += '<details class="story"' + (t.step === 0 ? ' open' : '') + '><summary>Su historia: ' + esc(t.historia) + '</summary><p class="intro">' + esc(t.intro) + '</p></details>';
 
@@ -2674,26 +2690,20 @@ var qrcode = function() {
           '<p class="small muted" style="margin:6px 0 0">Solo el líder escribe las respuestas. Los demás ven el avance en su celular.</p>' +
           '<button type="submit">Guardar equipo</button></form></div>' + howTo(t);
       } else {
-      if (t.step >= 1) {
-        h += '<div class="card hl"><div class="kicker">' + (t.step === 6 ? 'Último sobre' : 'Siguiente sobre') + '</div><h2 style="font-size:21px">Su sobre ' + colorWord(t) + ' está donde se tomó esta foto</h2>' +
-          (t.foto ? '<img class="photo" src="' + esc(t.foto) + '" alt="Foto del lugar del siguiente sobre">' : '<p class="muted">' + (t.fotoFalta ? 'La foto de este lugar no está cargada. Pidan la ubicación a los jueces.' : '') + '</p>') + '</div>';
-      }
-      if (t.step === 0) h += howTo(t);
       if (t.step < 6) {
-        h += '<div class="card"><div class="kicker">Pista ' + (t.step + 1) + ' de 6</div>' +
-          '<p class="muted" style="margin-top:0">' + (t.step === 0 ? 'El acertijo está en su tarjeta inicial.' : 'Encuentren el sobre, resuelvan el acertijo y escriban la respuesta.') + '</p>' +
-          (d.leader ? '<form id="fa"><input id="ai" class="code" placeholder="RESPUESTA" autocomplete="off" aria-label="Respuesta del acertijo"' + dis + '><button type="submit"' + dis + '>Enviar respuesta</button></form>' +
-          (t.hintAvailable ? '<button class="link" id="hint"' + dis + '>Usar comodín (quedan ' + t.hintsLeft + ', cada uno resta puntos)</button>' : '')
-          : '<div class="flash info" style="margin:6px 0 0">Ayuda a resolverlo. Solo el líder, <b>' + esc(t.leader) + '</b>, escribe la respuesta. Esta pantalla se actualiza sola.</div>') + '</div>';
+        if (!(t.solved || []).some(Boolean)) h += howTo(t);
+        h += lugaresCard(t) + acertijosCard(t, d, dis);
       } else {
+        h += '<div class="card hl"><div class="kicker">¡Último lugar desbloqueado!</div><h2 style="font-size:21px">Su último sobre ' + colorWord(t) + ' está donde se tomó esta foto</h2>' +
+          (t.foto ? '<img class="photo" src="' + esc(t.foto) + '" alt="Foto del último lugar">' : '<p class="muted">La foto de este lugar no está cargada. Pidan la ubicación a los jueces.</p>') + '</div>';
         h += retoCard(t, d.leader);
       }
-      if (t.hints.length) h += '<div class="card"><div class="kicker">Comodines usados</div>' + t.hints.map(function (x) { return '<div class="hint"><b>Pista ' + x.n + ':</b> ' + esc(x.text) + '</div>'; }).join('') + '</div>';
+      if (t.hints.length) h += '<div class="card"><div class="kicker">Comodines usados</div>' + t.hints.map(function (x) { return '<div class="hint"><b>Acertijo ' + x.n + ':</b> ' + esc(x.text) + '</div>'; }).join('') + '</div>';
       }
     }
     if (!t.named) h += '<button class="link" id="switch" style="display:block;margin:10px auto 0">¿Te equivocaste de equipo? Cambiar de equipo</button>';
     if (d.me) h += '<p class="small center" style="color:#fff;opacity:.8;margin:14px 6px 0">Si se cierra la página, vuelvan a escanear el QR de su tarjeta inicial: su avance no se pierde.</p>';
-    h += '<div class="foot"><span>' + esc(t.nombre) + '</span><span>' + (d.status === 'juego' && t.step < 7 ? (!t.named ? 'Etapa: nombre' : t.step < 6 ? 'Pista ' + (t.step + 1) + ' de 6' : 'Reto final') : '') + '</span></div>';
+    h += '<div class="foot"><span>' + esc(t.nombre) + '</span><span>' + (d.status === 'juego' && t.step < 7 ? (!t.named ? 'Etapa: nombre' : t.step < 6 ? t.step + ' de 6 resueltos' : 'Reto final') : '') + '</span></div>';
     render(h);
     Object.keys(keep).forEach(function (id) { var el = document.getElementById(id); if (el && !el.value && keep[id]) el.value = keep[id]; });
     if (keepMem.length) Array.prototype.forEach.call($app.querySelectorAll('.mem'), function (el, i) { if (keepMem[i]) el.value = keepMem[i]; });
@@ -2706,13 +2716,32 @@ var qrcode = function() {
       }, 500);
     }
   }
+  function lugaresCard(t) {
+    var L = t.lugares || [];
+    return '<div class="card"><div class="kicker">Lugares por descubrir</div><p class="muted" style="margin-top:0">En cada uno de estos 5 lugares hay un sobre ' + colorWord(t) + ' con un acertijo. Vayan en el orden que quieran.</p><div class="lugares">' +
+      L.map(function (u, i) { return u ? '<a href="' + esc(u) + '" target="_blank"><img src="' + esc(u) + '" alt="Lugar por descubrir ' + (i + 1) + '"></a>' : '<div class="nofoto">Foto pendiente</div>'; }).join('') + '</div></div>';
+  }
+  function acertijosCard(t, d, dis) {
+    var sv = t.solved || [], used = t.hintUsed || [];
+    var rows = [1, 2, 3, 4, 5, 6].map(function (n) {
+      var where = n === 1 ? 'En su sobre inicial' : 'En uno de los lugares';
+      if (sv[n - 1]) return '<div class="aq ok"><div><b>Acertijo ' + n + '</b><span>' + where + '</span></div><div class="okmark">✓ Resuelto</div></div>';
+      if (!d.leader) return '<div class="aq"><div><b>Acertijo ' + n + '</b><span>' + where + '</span></div><div class="pend">Pendiente</div></div>';
+      return '<div class="aq open"><div><b>Acertijo ' + n + '</b><span>' + where + '</span></div>' +
+        '<form class="fa" data-n="' + n + '"><input id="ai' + n + '" class="code" placeholder="RESPUESTA" autocomplete="off" aria-label="Respuesta del acertijo ' + n + '"' + dis + '><button type="submit"' + dis + '>Revisar</button></form>' +
+        (t.hintAvailable && used.indexOf(n - 1) < 0 ? '<button class="link" data-hint="' + n + '"' + dis + '>Usar comodín en este acertijo (quedan ' + t.hintsLeft + ')</button>' : '') + '</div>';
+    }).join('');
+    return '<div class="card"><div class="kicker">Acertijos · ' + sv.filter(Boolean).length + ' de 6 resueltos</div>' +
+      (d.leader ? '' : '<div class="flash info" style="margin:0 0 10px">Ayuden a resolverlos. Solo el líder, <b>' + esc(t.leader) + '</b>, escribe las respuestas. Esta pantalla se actualiza sola.</div>') +
+      rows + '<p class="small muted" style="margin:10px 0 0">Cuando resuelvan los 6, se desbloquea el último lugar con el reto final.</p></div>';
+  }
   function howTo(t) {
     return '<div class="card"><div class="kicker">Cómo se juega</div><ol style="margin:0;padding-left:20px;line-height:1.6">' +
       '<li>Pónganle nombre a su equipo.</li>' +
-      '<li>Resuelvan el acertijo de su tarjeta.</li>' +
-      '<li>Escriban la respuesta aquí.</li>' +
-      '<li>Si es correcta, les sale una foto: vayan a ese lugar y busquen el sobre <b>' + colorWord(t) + '</b>.</li>' +
-      '<li>Repitan hasta llegar al reto final: una foto de equipo que los jueces aprueban.</li></ol>' +
+      '<li>Resuelvan el acertijo 1 de su tarjeta inicial.</li>' +
+      '<li>Abajo verán fotos de 5 lugares: en cada uno hay un sobre <b>' + colorWord(t) + '</b> con otro acertijo. Vayan en el orden que quieran.</li>' +
+      '<li>Escriban cada respuesta en su casilla (acertijo 1 al 6).</li>' +
+      '<li>Con los 6 resueltos se desbloquea el último lugar y el reto final.</li></ol>' +
       '<p class="small muted">Todos los del equipo pueden abrir este QR en su celular. Si se traban, tienen 2 comodines (cada uno resta puntos).</p></div>';
   }
   function memberInput(i, v) { return '<input class="mem" maxlength="40" placeholder="Integrante ' + i + '" autocomplete="off" aria-label="Integrante ' + i + '" style="margin-top:8px" value="' + esc(v || '') + '">'; }
@@ -2773,8 +2802,8 @@ var qrcode = function() {
       if (!d.ok) { ST.flash = { kind: 'bad', text: d.msg || 'Error, intenten de nuevo.' }; return playerRender(); }
       var r = d.result || {};
       if (r.ok === false) ST.flash = { kind: 'bad', text: r.msg };
-      else if (r.result === 'correcta') ST.flash = { kind: 'ok', text: '¡Correcto! Busquen su siguiente sobre.' };
-      else if (r.result === 'reto') ST.flash = { kind: 'ok', text: '¡Correcto! Encuentren su último sobre: ahí está el reto final.' };
+      else if (r.result === 'correcta') ST.flash = { kind: 'ok', text: '¡Correcto! Acertijo ' + r.n + ' resuelto.' };
+      else if (r.result === 'reto') ST.flash = { kind: 'ok', text: '¡Los 6 resueltos! Se desbloqueó el último lugar.' };
       else if (r.result === 'incorrecta') ST.flash = { kind: 'bad', text: 'Esa no es la respuesta.' };
       else if (r.result === 'unido') ST.flash = { kind: 'ok', text: '¡Listo, ya estás en el equipo!' };
       else if (r.result === 'nombre') ST.flash = { kind: 'ok', text: '¡Bautizados! Ahora resuelvan el acertijo de su tarjeta.' };
@@ -2783,7 +2812,7 @@ var qrcode = function() {
       else if (r.result === 'listo') ST.flash = { kind: 'ok', text: 'Marcaste que estás listo. Falta que el resto del equipo lo marque.' };
       else if (r.result === 'listos') ST.flash = { kind: 'ok', text: '¡Todo el equipo está listo! Esperen a que los jueces los llamen.' };
       else if (r.result === 'foto') ST.flash = { kind: 'ok', text: 'Foto enviada a los jueces.' };
-      if (r.ok !== false && r.result !== 'incorrecta') Array.prototype.forEach.call($app.querySelectorAll('input:not([type=file])'), function (el) { el.value = ''; });
+      if (r.ok !== false && r.result !== 'incorrecta') { if (r.n) { var ai = document.getElementById('ai' + r.n); if (ai) ai.value = ''; } else Array.prototype.forEach.call($app.querySelectorAll('input:not([type=file])'), function (el) { el.value = ''; }); }
       ST.data = d; ST.sig = null; playerRender();
     });
   }
@@ -2824,11 +2853,15 @@ var qrcode = function() {
       var box = document.getElementById('mems'), n = box.querySelectorAll('.mem').length;
       if (n >= 8) return; box.insertAdjacentHTML('beforeend', memberInput(n + 1)); box.lastChild.focus(); if (n + 1 >= 8) am.style.display = 'none';
     };
-    var f = document.getElementById('fa'); if (f) f.onsubmit = function (e) { e.preventDefault(); var v = document.getElementById('ai').value; if (v.trim()) act('answer', { answer: v }); };
-    var hb = document.getElementById('hint'); if (hb) hb.onclick = function () {
-      if (hb.getAttribute('data-arm')) return act('hint', {});
-      hb.setAttribute('data-arm', '1'); hb.textContent = 'Toca otra vez para confirmar el comodín';
-    };
+    Array.prototype.forEach.call(document.querySelectorAll('form.fa'), function (f) {
+      f.onsubmit = function (e) { e.preventDefault(); var n = f.getAttribute('data-n'), v = document.getElementById('ai' + n).value; if (v.trim()) act('answer', { n: n, answer: v }); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-hint]'), function (hb) {
+      hb.onclick = function () {
+        if (hb.getAttribute('data-arm')) return act('hint', { n: hb.getAttribute('data-hint') });
+        hb.setAttribute('data-arm', '1'); hb.textContent = 'Toca otra vez para confirmar el comodín';
+      };
+    });
     var up = document.getElementById('up'); if (up) up.onchange = function () {
       var file = up.files && up.files[0]; if (!file) return;
       ST.busy = true; loading('Subiendo su foto…');
@@ -2846,7 +2879,7 @@ var qrcode = function() {
     if (r.pos) return 'COMPLETADO #' + r.pos;
     if (!r.named) return 'ELIGIENDO NOMBRE';
     if (r.step >= 6) return r.waitingPhoto ? 'FOTO EN REVISIÓN' : 'RETO FINAL';
-    return 'PISTA ' + (r.step + 1) + ' DE 6';
+    return r.step + ' DE 6 RESUELTOS';
   }
   function rankingRender(d) {
     ST.skew = Date.now() - d.now;
@@ -2928,14 +2961,14 @@ var qrcode = function() {
       }).join('') + '</div></div>';
     }
 
-    h += '<div class="card" style="overflow-x:auto"><div class="kicker">Avance de los equipos</div><table><thead><tr><th>Equipo</th><th>Avance</th><th>Respuesta esperada</th><th>Errores</th><th>Comodines</th><th>Penalizaciones</th><th>Ajustes</th></tr></thead><tbody>' +
+    h += '<div class="card" style="overflow-x:auto"><div class="kicker">Avance de los equipos</div><table><thead><tr><th>Equipo</th><th>Avance</th><th>Respuestas pendientes</th><th>Errores</th><th>Comodines</th><th>Penalizaciones</th><th>Ajustes</th></tr></thead><tbody>' +
       d.teams.map(function (t) {
-        var stage = !t.named && t.step < 7 ? '<span class="pill off">Eligiendo nombre</span>' : t.step >= 7 ? '<span class="pill on">Completó #' + t.pos + '</span>' : t.step === 6 ? '<span class="pill ' + (t.photo && t.photo.status === 'pendiente' ? 'wait">Foto en revisión' : 'on">Reto final') + '</span>' : '<span class="pill on">Pista ' + (t.step + 1) + ' de 6</span>';
+        var stage = !t.named && t.step < 7 ? '<span class="pill off">Eligiendo nombre</span>' : t.step >= 7 ? '<span class="pill on">Completó #' + t.pos + '</span>' : t.step === 6 ? '<span class="pill ' + (t.photo && t.photo.status === 'pendiente' ? 'wait">Foto en revisión' : 'on">Reto final') + '</span>' : '<span class="pill on">' + t.step + ' de 6 resueltos</span>';
         var times = t.log.map(function (l) { return (l.step <= 6 ? 'P' + l.step : 'Fin') + ' ' + hhmm(l.t); }).join(' · ');
         return '<tr><td><b style="color:' + t.color + '">' + esc(t.nombre) + '</b><div class="small muted">' + esc(t.historia) + '<br>Ruta ' + t.ruta.join('-') + '</div><div class="small" style="margin-top:4px"><b>Conectados (' + (t.joined || []).length + '):</b> ' + ((t.joined || []).length ? (t.readyList || []).map(function (p) { return '<span class="who">' + (p.ready ? '✓ ' : '') + esc(p.name) + '<button class="x" data-kick="' + t.id + '" data-n="' + esc(p.name) + '" aria-label="Quitar a ' + esc(p.name) + '">×</button></span>'; }).join('') : 'nadie todavía') + '</div><div class="small" style="margin-top:2px"><b>Líder:</b> ' + esc(t.leader || 'sin elegir') + '</div><button class="sec" data-ren="' + t.id + '" data-n="' + esc(t.nombre) + '">Cambiar nombre</button><button class="sec" data-lead="' + t.id + '">Cambiar líder</button></td>' +
           '<td>' + stage + '<div style="font-family:Poppins,sans-serif;font-weight:700;font-size:18px;margin-top:4px">' + (t.time.endAt ? 'Jugó ' + clockUp(t.time.startedAt, t.time.endAt) : clockDown(t.time.gameDue)) + '</div><div class="small muted">' + esc(times) + '</div></td><td>' + esc(t.respuesta || '-') + '</td><td>' + t.wrong + '</td><td>' + t.hints + '</td>' +
           '<td>' + t.penal + ' <button class="sec" data-c="penal" data-t="' + t.id + '" data-d="1">+1</button><button class="sec" data-c="penal" data-t="' + t.id + '" data-d="-1">-1</button></td>' +
-          '<td><button class="sec" data-c="skip" data-t="' + t.id + '">Pasar pista</button><button class="sec" data-c="back" data-t="' + t.id + '">Retroceder</button><button class="sec" data-c="unlock" data-t="' + t.id + '">Quitar espera</button></td></tr>';
+          '<td><button class="sec" data-c="skip" data-t="' + t.id + '">Dar un acertijo</button><button class="sec" data-c="back" data-t="' + t.id + '">Retroceder</button><button class="sec" data-c="unlock" data-t="' + t.id + '">Quitar espera</button></td></tr>';
       }).join('') + '</tbody></table></div>';
 
     var order = d.teams.slice().sort(function (x, y) { return (x.time.readyAt || 9e15) - (y.time.readyAt || 9e15) || (x.time.prepStart || 9e15) - (y.time.prepStart || 9e15) || (x.finishedAt || 9e15) - (y.finishedAt || 9e15); });
@@ -3067,7 +3100,7 @@ var qrcode = function() {
     E.forEach(function (e) {
       var st = 'style="--tc:' + e.color + '"';
       h += '<div class="pcard" ' + st + '><div class="ph"><span>' + esc(e.nombre) + ' · ' + esc(e.historia) + '</span><small>SOBRE INICIAL</small></div><div class="pb">' +
-        '<div class="qr">' + qrSvg(teamLink(e.token)) + '</div><h4>Cómo se juega</h4><p style="margin-top:0">1. Cada uno escanea este QR con su celular y escribe su nombre y apellido.<br>2. Pónganle nombre a su equipo.<br>3. Resuelvan el acertijo y escriban la respuesta en el celular.<br>4. Les saldrá una foto: vayan a ese lugar y busquen un sobre de este color.<br>5. Repitan hasta el reto final.</p>' +
+        '<div class="qr">' + qrSvg(teamLink(e.token)) + '</div><h4>Cómo se juega</h4><p style="margin-top:0">1. Cada uno escanea este QR con su celular y escribe su nombre y apellido.<br>2. Pónganle nombre a su equipo.<br>3. Resuelvan el Acertijo 1 de esta tarjeta y escriban la respuesta en el celular.<br>4. En el celular verán fotos de 5 lugares: en cada uno hay un sobre de este color con otro acertijo. Vayan en el orden que quieran.<br>5. Con los 6 resueltos se desbloquea el reto final.</p>' +
         '<h4>Su historia</h4><p>' + esc(e.intro) + '</p>' +
         '<h4>Acertijo 1</h4><p>' + esc(e.pistas[0].acertijo) + '</p>' + (e.pistas[0].ayuda ? '<div class="pa">' + esc(e.pistas[0].ayuda) + '</div>' : '') +
         '<div class="staff">Se entrega en el salón al iniciar.</div></div></div>';
