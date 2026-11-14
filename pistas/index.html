@@ -2562,8 +2562,8 @@ var qrcode = function() {
   function playerRender() {
     var d = ST.data, t = d.team, now = Date.now(), skew = now - d.now;
     var lockLeft = t.lockUntil ? Math.ceil((t.lockUntil + skew - now) / 1000) : 0, locked = lockLeft > 0, dis = locked ? ' disabled' : '';
-    var h = brand(esc(t.nombre), t.color) + flashHtml();
-    h += '<div class="teamchip" style="--tc:' + t.color + '"><span class="dot"></span><div><b>' + esc(t.nombre) + '</b><span>' + esc(t.historia) + '</span></div></div>';
+    var h = brand('Color ' + colorWord(t), t.color) + flashHtml();
+    h += '<div class="teamchip" style="--tc:' + t.color + '"><span class="dot"></span><div><b>' + esc(t.nombre) + '</b><span>' + esc(t.historia) + ' · sobres color ' + colorWord(t) + '</span></div></div>';
 
     if (d.status === 'espera') {
       h += '<div class="card hl"><div class="kicker">Equipo conectado</div><h2>¡Listos! Esperen la señal</h2><p class="muted">Cuando los jueces inicien el juego, aquí aparecerá su historia. No hace falta recargar.</p></div>' + howTo(t);
