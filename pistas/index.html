@@ -2635,8 +2635,13 @@ var qrcode = function() {
   }
 
   function playerRender() {
-    var d = ST.data, t = d.team, now = Date.now(), skew = now - d.now;
-    var lockLeft = t.lockUntil ? Math.ceil((t.lockUntil + skew - now) / 1000) : 0, locked = lockLeft > 0, dis = locked ? ' disabled' : '';
+    if (ST.tick) { clearInterval(ST.tick); ST.tick = null; }
+    var d = ST.data, t = d.team;
+    var lockLeft = t.lockUntil ? Math.ceil((t.lockUntil - srvNow()) / 1000) : 0, locked = lockLeft > 0, dis = locked ? ' disabled' : '';
+    // Guarda lo que estaban escribiendo para no borrarlo al redibujar
+    var keep = {}, focusId = document.activeElement && document.activeElement.id;
+    Array.prototype.forEach.call($app.querySelectorAll('input[id],textarea[id],select[id]'), function (el) { if (el.type !== 'file') keep[el.id] = el.value; });
+    var keepMem = Array.prototype.map.call($app.querySelectorAll('.mem'), function (el) { return el.value; });
     var h = brand('Color ' + colorWord(t), t.color) + flashHtml();
     h += '<div class="teamchip" style="--tc:' + t.color + '"><span class="dot"></span><div><b>' + esc(t.nombre) + '</b><span>' + esc(t.historia) + ' · sobres color ' + colorWord(t) + '</span>' + (t.members && t.members.length ? '<span style="display:block;margin-top:2px">' + esc(t.members.join(' · ')) + '</span>' : '') + (t.leader ? '<span style="display:block;margin-top:2px">Líder: <b style="display:inline;font-size:13px">' + esc(t.leader) + '</b>' + (d.leader ? ' (tú)' : '') + '</span>' : '') + '</div></div>';
 
@@ -2653,7 +2658,7 @@ var qrcode = function() {
       h += resCard('info', 'Se acabó el tiempo', 'Vuelvan al salón y júntense todos.') + readyCard(t, d) + finalCards(t);
     } else {
       h += stepsBar(t.step, t.named) + '<div class="timerbar"><span>Tiempo restante<br><span class="small">Cada minuto extra resta 1 punto' + (t.over && t.over.game ? ' · van -' + t.over.game : '') + '</span></span><b>' + clockDown(t.time.gameDue) + '</b></div>';
-      if (locked) h += '<div class="lock" role="status"><div class="t" id="lk">' + lockLeft + 's</div><div><b>Respuesta incorrecta</b><div class="small muted">Revisen el acertijo. Pueden intentar otra vez cuando termine el conteo.</div></div></div>';
+      if (locked) h += '<div class="lock" role="status"><div class="t" id="lk">' + lockLeft + 's</div><div><b>Respuesta incorrecta</b><div class="small muted">Revisen el acertijo. Al terminar el conteo se habilita solo, sin recargar.</div></div></div>';
       if (t.intro) h += '<details class="story"' + (t.step === 0 ? ' open' : '') + '><summary>Su historia: ' + esc(t.historia) + '</summary><p class="intro">' + esc(t.intro) + '</p></details>';
 
       if (!t.named) {
@@ -2687,10 +2692,13 @@ var qrcode = function() {
     if (d.me) h += '<p class="small center" style="color:#fff;opacity:.8;margin:14px 6px 0">Si se cierra la página, vuelvan a escanear el QR de su tarjeta inicial: su avance no se pierde.</p>';
     h += '<div class="foot"><span>' + esc(t.nombre) + '</span><span>' + (d.status === 'juego' && t.step < 7 ? (!t.named ? 'Etapa: nombre' : t.step < 6 ? 'Pista ' + (t.step + 1) + ' de 6' : 'Reto final') : '') + '</span></div>';
     render(h);
+    Object.keys(keep).forEach(function (id) { var el = document.getElementById(id); if (el && !el.value && keep[id]) el.value = keep[id]; });
+    if (keepMem.length) Array.prototype.forEach.call($app.querySelectorAll('.mem'), function (el, i) { if (keepMem[i]) el.value = keepMem[i]; });
+    if (focusId) { var fe = document.getElementById(focusId); if (fe && fe.focus && !fe.disabled) fe.focus(); }
     bindPlayer();
     if (locked) {
       ST.tick = setInterval(function () {
-        var left = Math.ceil((t.lockUntil + skew - Date.now()) / 1000), el = document.getElementById('lk');
+        var left = Math.ceil((t.lockUntil - srvNow()) / 1000), el = document.getElementById('lk');
         if (left <= 0) { clearInterval(ST.tick); ST.tick = null; t.lockUntil = 0; playerRender(); } else if (el) el.textContent = left + 's';
       }, 500);
     }
@@ -2755,6 +2763,7 @@ var qrcode = function() {
 
   function act(action, extra, flashMsg) {
     if (ST.busy) return; ST.busy = true;
+    Array.prototype.forEach.call($app.querySelectorAll('button[type=submit],#ready,#reveal,#hint'), function (b) { b.disabled = true; if (b.type === 'submit') b.textContent = 'Revisando…'; });
     var a = { e: getTok(), dev: devId() }; for (var k in extra) a[k] = extra[k];
     call(action, a).then(function (d) {
       ST.busy = false; if (d.now) ST.skew = Date.now() - d.now;
@@ -2771,6 +2780,7 @@ var qrcode = function() {
       else if (r.result === 'listo') ST.flash = { kind: 'ok', text: 'Marcaste que estás listo. Falta que el resto del equipo lo marque.' };
       else if (r.result === 'listos') ST.flash = { kind: 'ok', text: '¡Todo el equipo está listo! Esperen a que los jueces los llamen.' };
       else if (r.result === 'foto') ST.flash = { kind: 'ok', text: 'Foto enviada a los jueces.' };
+      if (r.ok !== false && r.result !== 'incorrecta') Array.prototype.forEach.call($app.querySelectorAll('input:not([type=file])'), function (el) { el.value = ''; });
       ST.data = d; ST.sig = null; playerRender();
     });
   }
